@@ -1,0 +1,27 @@
+{
+  "name": "audibler",
+  "version": "1.0.0",
+  "description": "Audio transcription tool using OpenAI Whisper",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "commander": "^13.1.0",
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7",
+    "midjourney": "^4.3.17",
+    "openai": "^4.83.0",
+    "progress": "^2.0.3",
+    "sharp": "^0.33.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@types/progress": "^2.0.7",
+    "@types/sharp": "^0.32.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

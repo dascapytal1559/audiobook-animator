@@ -1,0 +1,6 @@
+---
+description: when interacting with openai
+globs: 
+---
+always use zod for structured json
+default model is o3-mini

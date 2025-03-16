@@ -1,0 +1,5 @@
+---
+description: use src/common/* when possible
+globs: 
+---
+use [flags.ts](mdc:src/common/flags.ts) when declaring cli
