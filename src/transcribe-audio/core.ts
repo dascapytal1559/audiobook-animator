@@ -20,6 +20,7 @@ export async function transcribeAudio(audioPath: string): Promise<OpenAI.Audio.T
     file: fs.createReadStream(audioPath),
     model: "whisper-1",
     response_format: "verbose_json",
+    timestamp_granularities: ["word", "segment"],
     temperature: 0,          // Use zero temperature for maximum accuracy
     language: "en",         // Explicitly specify English
     prompt: "This is an audiobook narration",  // Give context about the content
@@ -47,17 +48,23 @@ export function cleanTranscript(response: OpenAI.Audio.TranscriptionVerbose): Tr
   };
 }
 
-export async function transcribeChapter(book: string, chapter: string): Promise<void> {
-  const audioPath = path.join("audiobooks", book, chapter, `${chapter}.mp3`);
+/**
+ * Transcribe a chapter from a book
+ * @param book The book name
+ * @param chapterDir The chapter directory name (format: "0_Chapter_Name")
+ */
+export async function transcribeChapter(book: string, chapterDir: string): Promise<void> {
+  const chapterPath = path.join("audiobooks", book, chapterDir);
+  const audioFileName = `${chapterDir}.mp3`;
+  const audioPath = path.join(chapterPath, audioFileName);
 
   // Create output paths in the same directory as the audio file
-  const chapterDir = path.dirname(audioPath);
-  const rawResponsePath = path.join(chapterDir, 'transcript.res.json');
-  const transcriptPath = path.join(chapterDir, 'transcript.json');
+  const rawResponsePath = path.join(chapterPath, 'transcript.res.json');
+  const transcriptPath = path.join(chapterPath, 'transcript.json');
 
   console.log(`Processing: ${path.basename(audioPath)}`);
   console.log(`Book: ${book}`);
-  console.log(`Chapter: ${chapter}`);
+  console.log(`Chapter: ${chapterDir}`);
 
   // Get transcription from OpenAI
   const response = await transcribeAudio(audioPath);
