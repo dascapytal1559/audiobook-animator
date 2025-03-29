@@ -6,8 +6,8 @@ export const FLAGS = {
     description: "Name of the book",
   },
   chapter: {
-    flag: "-c, --chapter <chapter>",
-    description: "Name of the chapter",
+    flag: "-c, --chapters <chapters>",
+    description: "Chapter indices to process (e.g., '1,3,5-10')",
   },
   director: {
     flag: "-d, --director <director>",
