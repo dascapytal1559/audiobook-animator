@@ -1,11 +1,12 @@
 import path from 'path';
+import * as fs from 'fs';
 
 export const FLAGS = {
   book: {
     flag: "-b, --book <book>",
     description: "Name of the book",
   },
-  chapter: {
+  chapters: {
     flag: "-c, --chapters <chapters>",
     description: "Chapter indices to process (e.g., '1,3,5-10')",
   },
@@ -98,4 +99,60 @@ export function parseIds(allIds: number[], input?: string): number[] {
  */
 export function getVisualDir(book: string, chapter: string, visual: string): string {
   return path.join('audiobooks', book, chapter, visual);
+}
+
+export function parseBookDir(bookName?: string): string {
+  // if empty, return audiobooks/Stories_of_Your_Life_and_Others
+  if (!bookName) {
+    bookName = 'Stories_of_Your_Life_and_Others';
+  }
+  return path.join('audiobooks', bookName);
+}
+
+/**
+ * Gets the full paths for selected chapter directories based on input.
+ * @param book The name of the book.
+ * @param chaptersInput The chapter selection string (e.g., '1,3,5-10').
+ * @returns An array of full paths to the selected chapter directories.
+ */
+export function parseChapterDirs(bookDir: string, chaptersInput?: string): string[] {
+  if (!fs.existsSync(bookDir)) {
+    console.error(`Error: Book directory not found at ${bookDir}`);
+    return [];
+  }
+
+  let chapterDirs: { index: number; name: string; }[] = [];
+  try {
+    const dirents = fs.readdirSync(bookDir, { withFileTypes: true });
+    chapterDirs = dirents
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => {
+        // Assuming chapter dir format is index_title (e.g., 0_Introduction)
+        const match = dirent.name.match(/^(\d+)_/);
+        return match ? { index: parseInt(match[1], 10), name: dirent.name } : null;
+      })
+      .filter((dir): dir is { index: number; name: string; } => dir !== null)
+      .sort((a, b) => a.index - b.index);
+
+  } catch (error) {
+    console.error(`Error reading book directory ${bookDir}:`, error);
+    return [];
+  }
+
+  if (chapterDirs.length === 0) {
+    console.warn(`Warning: No valid chapter directories found in ${bookDir}`);
+    return [];
+  }
+
+  const allChapterIndices = chapterDirs.map(dir => dir.index);
+  const selectedIndices = parseIds(allChapterIndices, chaptersInput);
+
+  // Create a map for quick lookup
+  const chapterDirMap = new Map(chapterDirs.map(dir => [dir.index, dir.name]));
+
+  // Get the full paths for selected chapters
+  return selectedIndices
+    .map(index => chapterDirMap.get(index))
+    .filter((name): name is string => name !== undefined) // Filter out undefined (shouldn't happen if parseIds is correct)
+    .map(name => path.join(bookDir, name));
 }

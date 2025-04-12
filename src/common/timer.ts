@@ -4,10 +4,6 @@ export class ElapsedTimer {
 
   constructor() {
     this.startTime = Date.now();
-  }
-
-  start() {
-    this.startTime = Date.now();
     this.timerInterval = setInterval(() => {
       const elapsedSeconds = Math.floor((Date.now() - this.startTime) / 1000);
       process.stdout.write(`\rElapsed time: ${elapsedSeconds}s`);
@@ -19,8 +15,8 @@ export class ElapsedTimer {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
-    const elapsedSeconds = Math.floor((Date.now() - this.startTime) / 1000);
-    console.log(`\nCompleted in ${elapsedSeconds} seconds`);
+    const elapsedSeconds = (Date.now() - this.startTime)/1000;
+    console.log(`\rCompleted in ${elapsedSeconds.toFixed(1)} seconds`);
     return elapsedSeconds;
   }
 } 
@@ -32,15 +28,9 @@ export class CliTimer {
     this.startTime = Date.now();
   }
 
-  start() {
-    this.startTime = Date.now();
-  }
-
   stop() {
-    return this.getElapsedTime();
-  }
-
-  getElapsedTime(): number {
-    return Date.now() - this.startTime;
+    const elapsedSeconds = (Date.now() - this.startTime)/1000;
+    console.log(`\nProgram completed in ${elapsedSeconds.toFixed(1)} seconds`);
+    return elapsedSeconds;
   }
 } 

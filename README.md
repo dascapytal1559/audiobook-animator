@@ -2,6 +2,15 @@
 
 ## Pipeline
 
+starting with an audiobook
+> split into chapters [reworked]
+> split into chunks [reworked]
+> transcribe chunks
+> create scenes
+> create image
+> animate image
+> stitch into video
+
 Base Pipeline (one-time per chapter):
 - start with audiobook
 - split-chapters
