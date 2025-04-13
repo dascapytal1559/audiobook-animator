@@ -31,39 +31,48 @@ async function splitChapterChunks(chapterDir: string): Promise<void> {
   let startTimestamp = "00:00:00";
   for (const i in chunksConfig) {
     const duration = chunksConfig[i];
+    const toEnd = duration === "remainder";
 
     const fileName = `chunk_${i}.mp3`;
 
     const chunkOutputPath = path.join(chapterDir, fileName);
 
+    const durStr = toEnd ? "to the end" : `for ${duration}`;
+
     console.log(
-      `\nSplitting ${fileName}: starting at ${startTimestamp} for ${duration}`
+      `\nSplitting ${fileName}: starting at ${startTimestamp} ${durStr}`
     );
 
     const timer = new ElapsedTimer();
     await new Promise<void>((resolve, reject) => {
-      ffmpeg(inputPath)
+      const f = ffmpeg(inputPath)
         .setStartTime(startTimestamp)
-        .setDuration(duration)
         .output(chunkOutputPath)
         .audioCodec("copy")
         .on("start", (commandLine) => {
           console.log(`Running: ${commandLine}`);
         })
         .on("end", () => {
-          timer.stop()
+          timer.stop();
           console.log(`ffmpeg success: ${chunkOutputPath}`);
           resolve();
         })
         .on("error", (err) => {
-          timer.stop()
+          timer.stop();
           console.error(`ffmpeg failed on ${inputPath}:`, err);
           reject(err);
-        })
-        .run();
-    });;
+        });
 
-    startTimestamp = addDuration(startTimestamp, duration);
+      if (!toEnd) {
+        f.setDuration(duration);
+      }
+
+      f.run();
+    });
+
+    if (!toEnd) {
+      startTimestamp = addDuration(startTimestamp, duration);
+    }
   }
 }
 

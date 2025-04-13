@@ -25,19 +25,19 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
   console.log(`Splitting chapters for book in ${bookDir}`);
 
   // Check for book.mp3 file
-  const bookAudioPath = path.join(bookDir, 'book.mp3');
+  const bookAudioPath = path.join(bookDir, "book.mp3");
   if (!fs.existsSync(bookAudioPath)) {
     throw new Error(`Book audio file not found at ${bookAudioPath}`);
   }
 
   // Load chapters config
-  const chaptersConfigPath = path.join(bookDir, 'chapters.config.json');
+  const chaptersConfigPath = path.join(bookDir, "chapters.config.json");
   if (!fs.existsSync(chaptersConfigPath)) {
     throw new Error(`Chapters config not found at ${chaptersConfigPath}`);
   }
 
   const chaptersConfig: ChaptersConfig = JSON.parse(
-    fs.readFileSync(chaptersConfigPath, 'utf-8')
+    fs.readFileSync(chaptersConfigPath, "utf-8")
   );
 
   // Determine which chapters to process
@@ -52,8 +52,8 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
   );
 
   // Calculate start times for each chapter
-  const startTimes: string[] = ['00:00:00'];
-  let currentTimestamp = '00:00:00';
+  const startTimes: string[] = ["00:00:00"];
+  let currentTimestamp = "00:00:00";
 
   for (let i = 0; i < chaptersConfig.length - 1; i++) {
     const duration = chaptersConfig[i].duration;
@@ -64,34 +64,36 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
   // Process selected chapters
   for (const index of selectedIndices) {
     const chapter = chaptersConfig[index];
-    const chapterNumber = index.toString().padStart(1, '0');
-    const chapterTitle = chapter.title.replace(/\s+/g, '_');
+    const chapterNumber = index.toString().padStart(1, "0");
+    const chapterTitle = chapter.title.replace(/\s+/g, "_");
     const chapterDirName = `${chapterNumber}_${chapterTitle}`;
     const chapterDir = path.join(bookDir, chapterDirName);
-    
+
     // Create chapter directory if it doesn't exist
     ensureDirectory(chapterDir);
-    
-    const outputPath = path.join(chapterDir, 'chapter.mp3');
-    
+
+    const outputPath = path.join(chapterDir, "chapter.mp3");
+
     const startTime = startTimes[index];
     const duration = chapter.duration;
-    
-    console.log(`\nExtracting chapter ${index}: ${chapter.title} (start at ${startTime} for ${duration})`);
-    
+
+    console.log(
+      `\nExtracting chapter ${index}: ${chapter.title} (start at ${startTime} for ${duration})`
+    );
+
     const timer = new ElapsedTimer();
     // Use ffmpeg to extract the chapter
     await new Promise<void>((resolve, reject) => {
-      ffmpeg(bookAudioPath)
+      const f = ffmpeg(bookAudioPath)
         .setStartTime(startTime)
         .setDuration(duration)
         .output(outputPath)
-        .on('end', () => {
+        .on("end", () => {
           timer.stop();
           console.log(`Successfully extracted: ${outputPath}`);
           resolve();
         })
-        .on('error', (err) => {
+        .on("error", (err) => {
           timer.stop();
           console.error(`Error extracting chapter: ${err.message}`);
           reject(err);
@@ -130,4 +132,4 @@ async function main() {
 
 if (require.main === module) {
   main();
-} 
+}

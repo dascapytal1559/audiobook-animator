@@ -30,7 +30,6 @@ async function cleanTranscriptionFiles(book: string, chapterDir: string): Promis
 
 async function main() {
   const timer = new CliTimer();
-  timer.start();
 
   try {
     const program = new Command();
@@ -39,7 +38,7 @@ async function main() {
     const transcribeCommand = new Command('transcribe')
       .description("Transcribe an audio file using OpenAI Whisper")
       .requiredOption(FLAGS.book.flag, FLAGS.book.description)
-      .option(FLAGS.chapter.flag, FLAGS.chapter.description)
+      .option(FLAGS.chapters.flag, FLAGS.chapters.description)
       .action(async (options) => {
         try {
           const book = options.book;
@@ -94,7 +93,7 @@ async function main() {
     const cleanCommand = new Command('clean')
       .description("Clean transcription files from temporary data")
       .requiredOption(FLAGS.book.flag, FLAGS.book.description)
-      .option(FLAGS.chapter.flag, FLAGS.chapter.description)
+      .option(FLAGS.chapters.flag, FLAGS.chapters.description)
       .action(async (options) => {
         try {
           const book = options.book;
