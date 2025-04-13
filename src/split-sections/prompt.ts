@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions';
-import { Transcript } from '../transcribe-audio/types';
+import { Transcript } from '../transcribe/types';
 
 // Zod schemas for validation
 export const SegmentSchema = z.object({

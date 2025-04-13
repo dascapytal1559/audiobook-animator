@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Transcript } from '../transcribe-audio/types';
+import { Transcript } from '../transcribe/types';
 import { ElapsedTimer } from '../common/timer';
 import { Sentence, Sentences } from './types';
 import { ensureDirectory } from '../common/paths';

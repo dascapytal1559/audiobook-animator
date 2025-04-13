@@ -10,6 +10,10 @@ export const FLAGS = {
     flag: "-c, --chapters <chapters>",
     description: "Chapter indices to process (e.g., '1,3,5-10')",
   },
+  chunks: {
+    flag: "-k, --chunks <chunks>",
+    description: "Chunk indices to process (e.g., '1,3,5-10')",
+  },
   director: {
     flag: "-d, --director <director>",
     description: "Name of the director, usually 'director-<DATETIME>'",

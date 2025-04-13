@@ -1,4 +1,4 @@
-import { Segment } from "../transcribe-audio/types";
+import { Segment } from "../transcribe/types";
 
 export interface Section {
   title: string;
