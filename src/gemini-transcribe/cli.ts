@@ -183,40 +183,53 @@ async function transcribeAudio(audioPath: string): Promise<GeminiTranscript> {
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-pro-exp-03-25",
     });
-    const result = await model.generateContent([
-      `
+    const result = await model.generateContent(
+      [
+        `
       Transcribe this audio file accurately, word-for-word. 
-      
-      Break down the transcription into scenes.
-      
-      And then within each scene, 
-      break down the transcription into sentences and provide timestamps for each sentence,
-      and list the key characters and objects, if any, in the scene.
+
+      Break down the transcription into scenes and shots:
+
+      1. Identify distinct scenes based on context changes, settings, or narrative shifts
+      2. Within each scene, identify individual shots that would work well as visual segments
+      3. For each shot, include:
+         - A concise description of what's happening in the shot
+         - The transcribed text contained in that shot
+         - Start time (in seconds)
+         - End time (in seconds) 
+         - Key characters visible or mentioned (if any)
+         - Key objects/items visible or described (if any)
 
       Return the result as JSON with this format: 
 
       {
-        "title": "top of the tower",
-        "scenes": Array<{
-          "description": "top of the tower",
-          "sentences": Array<{
-            "text": "day 1",
-            "keyCharacters": ["hilalem", "sabrina"],
-            "keyObjects": ["tower"],
-            "startTime": 0,
-            "endTime": 10
-          }>
-        }>
+        "text": "Transcript text",
+        "bookDescription": "Description of the book",
+        "scenes": [
+          {
+            "sceneDescription": "Description of scene setting/context",
+            "shots": [
+              {
+                "shotDescription": "Description of what's happening in this shot",
+                "transcript": "Exact transcribed text for this shot",
+                "startTime": 0.0,
+                "endTime": 5.0,
+                "keyCharacters": ["character1", "character2"],
+                "keyObjects": ["object1", "object2"]
+              }
+            ]
+          }
+        ]
       }
-
       `,
-      {
-        fileData: {
-          fileUri: uploadResult.file.uri,
-          mimeType: uploadResult.file.mimeType,
+        {
+          fileData: {
+            fileUri: uploadResult.file.uri,
+            mimeType: uploadResult.file.mimeType,
+          },
         },
-      },
-    ]);
+      ],
+    );
 
     timer.stop();
 
