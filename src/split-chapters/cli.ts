@@ -5,15 +5,29 @@ import path from "path";
 import { FLAGS, parseBookDir, parseIds } from "../common/flags";
 import { ensureDirectory } from "../common/paths";
 import { CliTimer, ElapsedTimer } from "../common/timer";
-import { addDuration, parseDuration } from "../common/timestamps";
+import { addDuration, parseDuration, parseTimestamp } from "../common/timestamps";
 
 // --- Types ---
 interface ChapterConfig {
   title: string;
-  duration: string; // Format: "HH:MM:SS" or "MM:SS"
+  startTime?: string; // Start timestamp: "HH:MM:SS" or "MM:SS" (optional)
+  endTime?: string;   // End timestamp: "HH:MM:SS" or "MM:SS" (optional)
+  duration?: string;  // Duration: "HH:MM:SS" or "MM:SS" (optional)
 }
 
 type ChaptersConfig = ChapterConfig[];
+
+interface DurationData {
+  inSeconds: number;
+  inTimestamp: string;
+}
+
+interface ProcessedChapter {
+  title: string;
+  startTime: string;
+  endTime: string;
+  duration: string;
+}
 
 // --- Core Logic ---
 /**
@@ -27,6 +41,68 @@ function durationToSeconds(duration: string): number {
     return parts[0] * 60 + parts[1];
   }
   return 0;
+}
+
+/**
+ * Get book duration from book.duration.json
+ */
+async function getBookDuration(bookDir: string): Promise<DurationData> {
+  const durationPath = path.join(bookDir, "book.duration.json");
+  if (!fs.existsSync(durationPath)) {
+    throw new Error(`Book duration file not found at ${durationPath}`);
+  }
+
+  return JSON.parse(fs.readFileSync(durationPath, "utf-8"));
+}
+
+/**
+ * Process chapter config to ensure all needed fields are available
+ */
+function processChaptersConfig(chaptersConfig: ChaptersConfig): ProcessedChapter[] {
+  const processedChapters: ProcessedChapter[] = [];
+  let currentStartTime = "00:00:00";
+  
+  for (let i = 0; i < chaptersConfig.length; i++) {
+    const chapter = chaptersConfig[i];
+    
+    // Determine start time
+    const startTime = chapter.startTime || currentStartTime;
+    
+    // Check if either endTime or duration is provided
+    if (!chapter.endTime && !chapter.duration) {
+      throw new Error(`Chapter "${chapter.title}" must specify either endTime or duration`);
+    }
+    
+    // Calculate duration and end time
+    let duration: string;
+    let endTime: string;
+    
+    if (chapter.endTime) {
+      endTime = chapter.endTime;
+      // Calculate duration from start and end times
+      const startSeconds = parseTimestamp(startTime);
+      const endSeconds = parseTimestamp(endTime);
+      const durationSeconds = endSeconds - startSeconds;
+      duration = parseDuration(durationSeconds);
+    } else {
+      // Use provided duration
+      duration = chapter.duration!;
+      // Calculate end time from start time and duration
+      endTime = addDuration(startTime, duration);
+    }
+    
+    processedChapters.push({
+      title: chapter.title,
+      startTime,
+      endTime,
+      duration
+    });
+    
+    // Next chapter starts where this one ends
+    currentStartTime = endTime;
+  }
+  
+  return processedChapters;
 }
 
 /**
@@ -49,9 +125,23 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
     throw new Error(`Chapters config not found at ${chaptersConfigPath}`);
   }
 
-  const chaptersConfig: ChaptersConfig = JSON.parse(
+  const rawChaptersConfig: ChaptersConfig = JSON.parse(
     fs.readFileSync(chaptersConfigPath, "utf-8")
   );
+  
+  // Process chapters config to fill in missing fields
+  const chaptersConfig = processChaptersConfig(rawChaptersConfig);
+
+  // Load book duration
+  const bookDuration = await getBookDuration(bookDir);
+  
+  // Validate that chapter timestamps are within book duration
+  for (const chapter of chaptersConfig) {
+    const endTimeSeconds = parseTimestamp(chapter.endTime);
+    if (endTimeSeconds > bookDuration.inSeconds) {
+      console.warn(`Warning: Chapter "${chapter.title}" end time (${chapter.endTime}) exceeds book duration (${bookDuration.inTimestamp})`);
+    }
+  }
 
   // Determine which chapters to process
   const chapterIndices = Array.from(
@@ -63,16 +153,6 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
   console.log(
     `Processing ${selectedIndices.length} / ${chaptersConfig.length} chapters`
   );
-
-  // Calculate start times for each chapter
-  const startTimes: string[] = ["00:00:00"];
-  let currentTimestamp = "00:00:00";
-
-  for (let i = 0; i < chaptersConfig.length - 1; i++) {
-    const duration = chaptersConfig[i].duration;
-    currentTimestamp = addDuration(currentTimestamp, duration);
-    startTimes.push(currentTimestamp);
-  }
 
   // Process selected chapters
   for (const index of selectedIndices) {
@@ -88,20 +168,22 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
     const outputPath = path.join(chapterDir, "chapter.mp3");
     const durationPath = path.join(chapterDir, "chapter.duration.json");
 
-    const startTime = startTimes[index];
+    const startTime = chapter.startTime;
+    const endTime = chapter.endTime;
     const duration = chapter.duration;
+    
+    // Calculate duration in seconds
     const durationSeconds = durationToSeconds(duration);
-    const durationTimestamp = parseDuration(durationSeconds);
-
+    
     // Write duration in both seconds and timestamp format to JSON file
     const durationData = {
       inSeconds: durationSeconds,
-      inTimestamp: durationTimestamp
+      inTimestamp: duration
     };
     fs.writeFileSync(durationPath, JSON.stringify(durationData, null, 2), "utf-8");
 
     console.log(
-      `\nExtracting chapter ${index}: ${chapter.title} (start at ${startTime} for ${duration})`
+      `\nExtracting chapter ${index}: ${chapter.title} (from ${startTime} to ${endTime}, duration: ${duration})`
     );
 
     const timer = new ElapsedTimer();

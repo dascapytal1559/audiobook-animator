@@ -6,9 +6,6 @@ export function parseTimestamp(timestamp: string): number {
   } else if (parts.length === 2) {
     const [minutes, seconds] = parts;
     return minutes * 60 + seconds;
-  } else if (parts.length === 1) {
-    const [seconds] = parts;
-    return seconds;
   } else {
     throw new Error(`Invalid timestamp format: ${timestamp}`);
   }
