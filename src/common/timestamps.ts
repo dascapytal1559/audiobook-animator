@@ -14,16 +14,23 @@ export function parseTimestamp(timestamp: string): number {
   }
 }
 
+export function parseDuration(totalSeconds: number): string {
+  const resultHours = Math.floor(totalSeconds / 3600);
+  const remainingSeconds = totalSeconds % 3600;
+  const resultMinutes = Math.floor(remainingSeconds / 60);
+  const resultSecondsWithDecimals = remainingSeconds % 60;
+  
+  // Format seconds with exactly 2 decimal places
+  const formattedSeconds = resultSecondsWithDecimals.toFixed(2);
+  
+  return `${String(resultHours).padStart(2, '0')}:${String(resultMinutes).padStart(2, '0')}:${formattedSeconds.padStart(5, '0')}`;
+}
+
 export function addDuration(timestamp: string, duration: string): string {
   const startSeconds = parseTimestamp(timestamp);
   const durationSeconds = parseTimestamp(duration);
   const totalSeconds = startSeconds + durationSeconds;
-  const resultHours = Math.floor(totalSeconds / 3600);
-  const remainingSeconds = totalSeconds % 3600;
-  const resultMinutes = Math.floor(remainingSeconds / 60);
-  const resultSeconds = remainingSeconds % 60;
-  
-  return `${String(resultHours).padStart(2, '0')}:${String(resultMinutes).padStart(2, '0')}:${String(resultSeconds).padStart(2, '0')}`;
+  return parseDuration(totalSeconds);
 }
   
 

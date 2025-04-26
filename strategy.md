@@ -27,8 +27,8 @@
 - audiobook
 - chapter
 - chunk
-- scenes
-- shots/prompt
+- scenes and shots
+- prompt
 - image
 - clip
 - video

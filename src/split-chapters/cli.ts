@@ -5,7 +5,7 @@ import path from "path";
 import { FLAGS, parseBookDir, parseIds } from "../common/flags";
 import { ensureDirectory } from "../common/paths";
 import { CliTimer, ElapsedTimer } from "../common/timer";
-import { addDuration } from "../common/timestamps";
+import { addDuration, parseDuration } from "../common/timestamps";
 
 // --- Types ---
 interface ChapterConfig {
@@ -16,6 +16,19 @@ interface ChapterConfig {
 type ChaptersConfig = ChapterConfig[];
 
 // --- Core Logic ---
+/**
+ * Convert duration string (HH:MM:SS or MM:SS) to seconds
+ */
+function durationToSeconds(duration: string): number {
+  const parts = duration.split(':').map(Number);
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  } else if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  return 0;
+}
+
 /**
  * Split book into chapters
  * @param bookDir: string - The directory of the book
@@ -73,9 +86,19 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
     ensureDirectory(chapterDir);
 
     const outputPath = path.join(chapterDir, "chapter.mp3");
+    const durationPath = path.join(chapterDir, "chapter.duration.json");
 
     const startTime = startTimes[index];
     const duration = chapter.duration;
+    const durationSeconds = durationToSeconds(duration);
+    const durationTimestamp = parseDuration(durationSeconds);
+
+    // Write duration in both seconds and timestamp format to JSON file
+    const durationData = {
+      inSeconds: durationSeconds,
+      inTimestamp: durationTimestamp
+    };
+    fs.writeFileSync(durationPath, JSON.stringify(durationData, null, 2), "utf-8");
 
     console.log(
       `\nExtracting chapter ${index}: ${chapter.title} (start at ${startTime} for ${duration})`
@@ -91,6 +114,7 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
         .on("end", () => {
           timer.stop();
           console.log(`Successfully extracted: ${outputPath}`);
+          console.log(`Duration logged to: ${durationPath}`);
           resolve();
         })
         .on("error", (err) => {

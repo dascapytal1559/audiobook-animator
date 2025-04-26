@@ -10,15 +10,9 @@ import {
   parseIds,
 } from "../common/flags";
 import { CliTimer, ElapsedTimer } from "../common/timer";
-import { ensureDirectory } from "../common/paths";
 import * as dotenv from "dotenv";
 
 // --- Types ---
-interface GeminiTranscript {
-  text: string;
-  duration?: number;
-  sentences?: Array<{ text: string; startTime: number; endTime: number }>;
-}
 
 interface GeminiFileInfo {
   name: string;
@@ -54,11 +48,11 @@ function validateAudioFile(audioPath: string): void {
   }
 }
 
-function saveJson(filePath: string, data: any): void {
-  ensureDirectory(path.dirname(filePath));
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
-  console.log(`JSON saved to: ${filePath}`);
-}
+// function saveJson(filePath: string, data: string): void {
+//   ensureDirectory(path.dirname(filePath));
+//   fs.writeFileSync(filePath, data, "utf8");
+//   console.log(`JSON saved to: ${filePath}`);
+// }
 
 function getUploadInfoPath(audioPath: string): string {
   return audioPath + ".upload-info.json";
@@ -77,14 +71,6 @@ function getUploadedFileInfo(audioPath: string): UploadedFileInfo | null {
   return null;
 }
 
-function saveUploadedFileInfo(
-  audioPath: string,
-  fileInfo: UploadedFileInfo
-): void {
-  const infoPath = getUploadInfoPath(audioPath);
-  saveJson(infoPath, fileInfo);
-}
-
 // --- Core Logic ---
 // Load environment variables
 dotenv.config();
@@ -97,7 +83,7 @@ if (!API_KEY) {
 const fileManager = new GoogleAIFileManager(API_KEY);
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-async function transcribeAudio(audioPath: string): Promise<GeminiTranscript> {
+async function transcribeAudio(audioPath: string): Promise<string> {
   validateAudioFile(audioPath);
   const stats = fs.statSync(audioPath);
   console.log(`File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
@@ -157,7 +143,9 @@ async function transcribeAudio(audioPath: string): Promise<GeminiTranscript> {
         state: uploadResult.file.state,
       };
 
-      saveUploadedFileInfo(audioPath, fileInfo);
+      const infoPath = getUploadInfoPath(audioPath);
+      fs.writeFileSync(infoPath, JSON.stringify(fileInfo, null, 2), "utf8");
+      console.log(`Upload info saved to: ${infoPath}`);
     }
 
     // Wait for processing to complete
@@ -183,82 +171,59 @@ async function transcribeAudio(audioPath: string): Promise<GeminiTranscript> {
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-pro-exp-03-25",
     });
-    const result = await model.generateContent(
-      [
-        `
-      Transcribe this audio file accurately, word-for-word. 
+    const result = await model.generateContent([
+      `
+      Transcribe this audiobook file accurately, word-for-word.
 
-      Break down the transcription into scenes and shots:
-
-      1. Identify distinct scenes based on context changes, settings, or narrative shifts
-      2. Within each scene, identify individual shots that would work well as visual segments
-      3. For each shot, include:
-         - A concise description of what's happening in the shot
-         - The transcribed text contained in that shot
-         - Start time (in seconds)
-         - End time (in seconds) 
-         - Key characters visible or mentioned (if any)
-         - Key objects/items visible or described (if any)
-
+      0. Determine the duration of the audio file in seconds.
+      1. Present the transcription as an array of sentences each with a start and end time in seconds. 
+        - First sentence starts at 0 seconds.
+        - Last sentence ends at the total duration of the audio file.
+      2. Analyse the story and break it into scenes that are distinct in setting or physical location, each scene refers to the starting and ending sentence index, along with matching start and end time in seconds.
+      3. Analyse the story to find ONLY the main characters and their description. Describe their appearance if possible.
+      
       Return the result as JSON with this format: 
 
       {
-        "text": "Transcript text",
-        "bookDescription": "Description of the book",
+        "duration": 100.0,
+        "sentences": [
+          {
+            "index": 0,
+            "text": "Sentence text",
+            "startTime": 0.0,
+            "endTime": 5.0,
+          }
+        ],
         "scenes": [
           {
-            "sceneDescription": "Description of scene setting/context",
-            "shots": [
-              {
-                "shotDescription": "Description of what's happening in this shot",
-                "transcript": "Exact transcribed text for this shot",
-                "startTime": 0.0,
-                "endTime": 5.0,
-                "keyCharacters": ["character1", "character2"],
-                "keyObjects": ["object1", "object2"]
-              }
-            ]
+            "description": "Description of the scene",
+            "startSentence": 0,
+            "endSentence": 5,
+            "startTime": 0.0,
+            "endTime": 5.0,
+          }
+        ],
+        "characters": [
+          {
+            "name": "Character name",
+            "description": "Description of the character",
           }
         ]
       }
       `,
-        {
-          fileData: {
-            fileUri: uploadResult.file.uri,
-            mimeType: uploadResult.file.mimeType,
-          },
+      {
+        fileData: {
+          fileUri: uploadResult.file.uri,
+          mimeType: uploadResult.file.mimeType,
         },
-      ],
-    );
+      },
+    ]);
 
     timer.stop();
 
-    const responseText = result.response.text();
-    let transcript: GeminiTranscript = { text: responseText };
-
-    // Try to parse JSON if present in the response
-    try {
-      if (responseText.includes("{") && responseText.includes("}")) {
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsedJson = JSON.parse(jsonMatch[0]);
-          if (parsedJson.text) {
-            transcript = parsedJson;
-            console.log(
-              `Transcription complete with ${
-                transcript.sentences?.length || 0
-              } timestamped sentences`
-            );
-          }
-        }
-      }
-    } catch (e) {
-      // If parsing fails, we already have the raw text in transcript
-      console.log("Could not parse sentence timestamps, using raw transcript");
-    }
-
     console.log(`Transcription complete`);
-    return transcript;
+
+    return result.response.text().replace("```json", "").replace("```", "");
   } catch (error) {
     console.error("Error during transcription:", error);
     throw error;
@@ -287,7 +252,7 @@ async function transcribeChapter(
     const transcript = await transcribeAudio(audioPath);
 
     // Save transcript
-    saveJson(transcriptPath, transcript);
+    fs.writeFileSync(transcriptPath, transcript, "utf8");
     console.log(`Transcript saved to: ${transcriptPath}`);
   } else {
     // Transcribe specific chunks
@@ -316,7 +281,7 @@ async function transcribeChapter(
       const transcript = await transcribeAudio(audioPath);
 
       // Save transcript
-      saveJson(transcriptPath, transcript);
+      fs.writeFileSync(transcriptPath, transcript, "utf8");
       console.log(`Transcript saved to: ${transcriptPath}`);
     }
   }
