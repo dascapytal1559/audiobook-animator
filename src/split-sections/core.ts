@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { OpenAI } from 'openai';
 import * as path from 'path';
-import { Transcript } from '../transcribe/types';
+import { Transcript } from '../openai-transcribe/types';
 import { ElapsedTimer } from '../common/timer';
 import { ResponseSchema, createPrompt } from './prompt';
 import { Sections } from './types';

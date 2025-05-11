@@ -5,7 +5,7 @@ import { ElapsedTimer } from '../common/timer';
 import { Shot, Shots } from './types';
 import { Sections } from '../split-sections/types';
 import { ResponseSchema, createPrompt } from './prompt';
-import { Segment } from '../transcribe/types';
+import { Segment } from '../openai-transcribe/types';
 
 const openai = new OpenAI();
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions';
 import { Section } from '../split-sections/types';
-import { Segment } from '../transcribe/types';
+import { Segment } from '../openai-transcribe/types';
 
 // Zod schemas for validation
 export const ShotSchema = z.object({

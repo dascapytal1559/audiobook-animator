@@ -71,6 +71,15 @@ function getUploadedFileInfo(audioPath: string): UploadedFileInfo | null {
   return null;
 }
 
+function getChapterDuration(chapterDir: string): number {
+  const durationPath = path.join(chapterDir, 'chapter.duration.json');
+  if (!fs.existsSync(durationPath)) {
+    throw new Error(`Chapter duration file not found: ${durationPath}`);
+  }
+  const durationData = JSON.parse(fs.readFileSync(durationPath, 'utf8'));
+  return durationData.inSeconds;
+}
+
 // --- Core Logic ---
 // Load environment variables
 dotenv.config();
@@ -88,6 +97,11 @@ async function transcribeAudio(audioPath: string): Promise<string> {
   const stats = fs.statSync(audioPath);
   console.log(`File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
   console.log("Starting transcription with Gemini...");
+
+  // Get chapter duration
+  const chapterDir = path.dirname(audioPath);
+  const duration = getChapterDuration(chapterDir);
+  console.log(`Chapter duration: ${duration} seconds`);
 
   try {
     // Check if we already have upload info for this file
@@ -175,38 +189,23 @@ async function transcribeAudio(audioPath: string): Promise<string> {
       `
       Transcribe this audiobook file accurately, word-for-word.
 
-      0. Determine the duration of the audio file in seconds.
-      1. Present the transcription as an array of sentences each with a start and end time in seconds. 
-        - First sentence starts at 0 seconds.
-        - Last sentence ends at the total duration of the audio file.
-      2. Analyse the story and break it into scenes that are distinct in setting or physical location, each scene refers to the starting and ending sentence index, along with matching start and end time in seconds.
-      3. Analyse the story to find ONLY the main characters and their description. Describe their appearance if possible.
+      Important: The total duration of this audio file is ${duration} seconds.
       
-      Return the result as JSON with this format: 
-
+      Please provide a simple transcript with accurate timestamps. Each sentence should include:
+      - Text content (word-for-word transcript)
+      - Start time (in seconds)
+      - End time (in seconds)
+      
+      Ensure all timestamps are accurate and never exceed ${duration} seconds.
+      
+      Return the result as JSON with this format:
       {
-        "duration": 100.0,
         "sentences": [
           {
             "index": 0,
             "text": "Sentence text",
             "startTime": 0.0,
-            "endTime": 5.0,
-          }
-        ],
-        "scenes": [
-          {
-            "description": "Description of the scene",
-            "startSentence": 0,
-            "endSentence": 5,
-            "startTime": 0.0,
-            "endTime": 5.0,
-          }
-        ],
-        "characters": [
-          {
-            "name": "Character name",
-            "description": "Description of the character",
+            "endTime": 5.0
           }
         ]
       }

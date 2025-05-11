@@ -6,6 +6,8 @@ import { promisify } from "util";
 import { FLAGS, parseBookDir } from "../common/flags";
 import { parseDuration, parseTimestamp } from "../common/timestamps";
 
+// Used to get the duration of the book in seconds
+
 const execAsync = promisify(exec);
 
 // Get audio duration in seconds using ffmpeg

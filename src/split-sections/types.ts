@@ -1,4 +1,4 @@
-import { Segment } from "../transcribe/types";
+import { Segment } from "../openai-transcribe/types";
 
 export interface Section {
   title: string;
