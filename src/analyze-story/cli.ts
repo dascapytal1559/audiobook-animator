@@ -9,8 +9,11 @@ import { CliTimer } from "../common/timer";
 import {
   getChapterTranscript,
   saveSceneAnalysis,
+  saveProcessedSceneAnalysis,
   Scene,
   SceneAnalysis,
+  ProcessedScene,
+  ProcessedSceneAnalysis,
 } from "./paths";
 
 dotenv.config();
@@ -111,6 +114,142 @@ ${transcriptText}
   }
 }
 
+/**
+ * Matches scene start text with transcript segments to find segment IDs
+ * @param scenes Array of scenes from OpenAI analysis
+ * @param transcript Complete transcript with segments
+ * @returns Processed scene array with segment IDs
+ */
+function matchScenesWithSegments(
+  sceneAnalysis: SceneAnalysis,
+  transcript: {
+    segmentCount: number;
+    segments: { id: number; start: number; end: number; text: string }[];
+  }
+): ProcessedSceneAnalysis {
+  console.log("Matching scenes with transcript segments...");
+  
+  const processedScenes: ProcessedScene[] = [];
+  
+  // Process each scene to find matching segment
+  for (let i = 0; i < sceneAnalysis.scenes.length; i++) {
+    const scene = sceneAnalysis.scenes[i];
+    let originalStartText = scene.startText;
+    let startText = originalStartText;
+    let startSegId: number | null = null;
+    
+    // Try to find exact match first
+    while (startText.length > 0 && startSegId === null) {
+      // Look for segments that include the startText
+      const matchingSegments = transcript.segments.filter(seg => 
+        seg.text.includes(startText)
+      );
+      
+      if (matchingSegments.length === 1) {
+        // Found a unique match
+        startSegId = matchingSegments[0].id;
+      } else if (matchingSegments.length > 1) {
+        // Multiple matches, halve the startText and try again
+        const newLength = Math.floor(startText.length / 2);
+        if (newLength === 0) {
+          // We've reached a single character and still have multiple matches
+          throw new Error(`Multiple matches found for scene ${scene.id}: "${originalStartText}"`);
+        }
+        startText = startText.substring(0, newLength);
+      } else {
+        // No matches, halve the startText and try again
+        const newLength = Math.floor(startText.length / 2);
+        if (newLength === 0) {
+          // We've reached a single character and still have no matches
+          throw new Error(`No match found for scene ${scene.id}: "${originalStartText}"`);
+        }
+        startText = startText.substring(0, newLength);
+      }
+    }
+    
+    if (startSegId === null) {
+      throw new Error(`Could not find matching segment for scene ${scene.id}`);
+    }
+    
+    // For endSegId - use the startSegId of the next scene minus 1, or the last segment if it's the last scene
+    let endSegId: number | undefined;
+    if (i < sceneAnalysis.scenes.length - 1) {
+      // This is not the last scene, so find the next scene's startSegId
+      const nextScene = sceneAnalysis.scenes[i + 1];
+      let nextStartText = nextScene.startText;
+      let nextStartSegId: number | null = null;
+      
+      // Try to find exact match for next scene
+      while (nextStartText.length > 0 && nextStartSegId === null) {
+        const matchingSegments = transcript.segments.filter(seg => 
+          seg.text.includes(nextStartText)
+        );
+        
+        if (matchingSegments.length === 1) {
+          nextStartSegId = matchingSegments[0].id;
+        } else if (matchingSegments.length > 1) {
+          const newLength = Math.floor(nextStartText.length / 2);
+          if (newLength === 0) break;
+          nextStartText = nextStartText.substring(0, newLength);
+        } else {
+          const newLength = Math.floor(nextStartText.length / 2);
+          if (newLength === 0) break;
+          nextStartText = nextStartText.substring(0, newLength);
+        }
+      }
+      
+      if (nextStartSegId !== null) {
+        // Found the next segment, this scene ends at the previous segment
+        endSegId = nextStartSegId - 1;
+      }
+    } else {
+      // This is the last scene, so it ends at the last segment
+      endSegId = transcript.segments[transcript.segments.length - 1].id;
+    }
+    
+    // Calculate segment count, start time, end time, and duration
+    const finalEndSegId = endSegId || transcript.segments[transcript.segments.length - 1].id;
+    
+    // Find the start segment by ID
+    const startSegment = transcript.segments.find(seg => seg.id === startSegId);
+    if (!startSegment) {
+      throw new Error(`Could not find start segment with ID ${startSegId} for scene ${scene.id}`);
+    }
+    
+    // Find the end segment by ID
+    const endSegment = transcript.segments.find(seg => seg.id === finalEndSegId);
+    if (!endSegment) {
+      throw new Error(`Could not find end segment with ID ${finalEndSegId} for scene ${scene.id}`);
+    }
+    
+    // Calculate segment count (inclusive of start and end)
+    const segCount = finalEndSegId - startSegId + 1;
+    
+    // Calculate timing information
+    const startTime = startSegment.start;
+    const endTime = endSegment.end;
+    const duration = endTime - startTime;
+    
+    // Add the processed scene with segment IDs and timing data
+    processedScenes.push({
+      ...scene,
+      startSegId,
+      endSegId,
+      segCount,
+      startTime,
+      endTime,
+      duration,
+    });
+  }
+  
+  return {
+    bookName: sceneAnalysis.bookName,
+    chapterName: sceneAnalysis.chapterName,
+    sceneCount: processedScenes.length,
+    scenes: processedScenes,
+  };
+}
+
 // --- CLI Logic ---
 
 const program = new Command();
@@ -161,10 +300,18 @@ program.action(async (options) => {
         transcript.text
       );
 
-      // Save results
+      // Save raw results
       const outputPath = saveSceneAnalysis(chapterDir, sceneAnalysis);
       console.log(`Identified ${sceneAnalysis.sceneCount} scenes`);
-      console.log(`Saved scene analysis to: ${outputPath}`);
+      console.log(`Saved raw scene analysis to: ${outputPath}`);
+      
+      // Process scenes to add segment IDs
+      const processedSceneAnalysis = matchScenesWithSegments(sceneAnalysis, transcript);
+      
+      // Save processed results
+      const processedOutputPath = saveProcessedSceneAnalysis(chapterDir, processedSceneAnalysis);
+      console.log(`Processed ${processedSceneAnalysis.sceneCount} scenes with segment IDs`);
+      console.log(`Saved processed scene analysis to: ${processedOutputPath}`);
     } catch (error) {
       console.error(
         `Error analyzing scenes for chapter ${chapterName}:`,
