@@ -105,10 +105,13 @@ export function getVisualDir(book: string, chapter: string, visual: string): str
   return path.join('audiobooks', book, chapter, visual);
 }
 
-export function parseBookDir(bookName?: string): string {
-  // if empty, return audiobooks/Stories_of_Your_Life_and_Others
-  if (!bookName) {
-    bookName = 'Stories_of_Your_Life_and_Others';
+export function parseBookDir(bookName: string): string {
+  const BookAliases: Record<string, string> = {
+    'S': 'Stories_of_Your_Life_and_Others',
+    'E': 'Exhalation',
+  }
+  if (BookAliases[bookName]) {
+    bookName = BookAliases[bookName];
   }
   return path.join('audiobooks', bookName);
 }

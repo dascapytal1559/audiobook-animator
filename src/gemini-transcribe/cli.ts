@@ -295,7 +295,7 @@ async function main() {
 
     program
       .description("Transcribe chapter audio files using Google Gemini")
-      .option(FLAGS.book.flag, FLAGS.book.description)
+      .requiredOption(FLAGS.book.flag, FLAGS.book.description)
       .requiredOption(FLAGS.chapters.flag, FLAGS.chapters.description)
       .option(FLAGS.chunks.flag, FLAGS.chunks.description)
       .action(async (options) => {

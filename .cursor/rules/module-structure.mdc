@@ -1,0 +1,61 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# module-structure
+
+Each module in the Audiobook Animator project should follow the established structure:
+
+## Directory Structure
+```
+src/
+  module-name/
+    cli.ts       # Command-line interface
+    [other specialized files...]
+```
+
+## File Organization
+
+### 1. Imports
+- External libraries first
+- Internal modules from common/ and other project files
+- Environment configuration (dotenv)
+
+### 2. Types
+- Define TypeScript interfaces and types
+- Keep types close to where they are used
+
+### 3. Utility Functions
+- Small, focused helper functions
+- Validation functions
+- File handling utilities
+
+### 4. Core Logic
+- Main functionality of the module
+- Processing functions
+- API interaction
+
+### 5. CLI Logic
+- Command definition using Commander.js
+- Options and flags 
+- CLI action handlers
+
+### 6. Entrypoint
+- Main function that sets up and executes the CLI
+- Module execution check (if require.main === module)
+
+## Common Patterns
+
+- Error Handling: Validate inputs early, use try/catch, provide descriptive errors
+- File Management: Save metadata, use consistent naming, check for existing files
+- Performance Tracking: Use timer utilities, log progress for long operations
+- CLI Options: Use the FLAGS object from common/flags, support batch processing
+
+## AI Integration
+
+- Authentication: Use environment variables for API keys with dotenv
+- File Upload: Handle large files, save metadata, monitor processing state
+- Prompt Engineering: Structure prompts clearly with specific output format
+
+Always reuse common utilities from src/common/ and maintain consistent CLI interfaces with existing modules.
