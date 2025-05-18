@@ -10,8 +10,22 @@ import {
 } from "../common/flags";
 import { CliTimer, ElapsedTimer } from "../common/timer";
 import * as dotenv from "dotenv";
+import {
+  GeminiSummary,
+  findChapterAudioFile,
+  getUploadInfoPath,
+  getSummaryResponsePath,
+  saveSummary
+} from "./paths";
+import {
+  getChapterDir,
+  formatChapterDirName
+} from "../split-chapters/paths";
 
 // --- Types ---
+/**
+ * Result of a summary generation from Gemini
+ */
 interface SummaryResult {
   shortSummary: string;
   longSummary: string;
@@ -19,6 +33,9 @@ interface SummaryResult {
   chapter: string;
 }
 
+/**
+ * Information about a file uploaded to Gemini
+ */
 interface GeminiFileInfo {
   name: string;
   displayName: string;
@@ -27,6 +44,9 @@ interface GeminiFileInfo {
   state: string;
 }
 
+/**
+ * Stored information about an uploaded file
+ */
 interface UploadedFileInfo {
   name: string;
   uri: string;
@@ -49,25 +69,6 @@ function validateAudioFile(filePath: string): void {
   }
 }
 
-function findMp3File(chapterDir: string): string {
-  const files = fs.readdirSync(chapterDir);
-  const mp3Files = files.filter(file => file.endsWith(".mp3") && !file.includes("chunk"));
-  
-  if (mp3Files.length === 0) {
-    throw new Error(`No MP3 file found in ${chapterDir}`);
-  }
-  
-  if (mp3Files.length > 1) {
-    console.warn(`Multiple MP3 files found in ${chapterDir}, using the first one: ${mp3Files[0]}`);
-  }
-  
-  return path.join(chapterDir, mp3Files[0]);
-}
-
-function getUploadInfoPath(audioPath: string): string {
-  return audioPath + ".gemini-upload.json";
-}
-
 function getUploadedFileInfo(audioPath: string): UploadedFileInfo | null {
   const infoPath = getUploadInfoPath(audioPath);
   if (fs.existsSync(infoPath)) {
@@ -82,8 +83,7 @@ function getUploadedFileInfo(audioPath: string): UploadedFileInfo | null {
 }
 
 function writeSummary(chapterDir: string, summaryResult: SummaryResult): string {
-  const summaryPath = path.join(chapterDir, "gemini-summary.json");
-  const summaryData = {
+  const summaryData: GeminiSummary = {
     shortSummary: summaryResult.shortSummary,
     longSummary: summaryResult.longSummary,
     book: summaryResult.book,
@@ -91,7 +91,7 @@ function writeSummary(chapterDir: string, summaryResult: SummaryResult): string 
     generated: new Date().toISOString()
   };
   
-  fs.writeFileSync(summaryPath, JSON.stringify(summaryData, null, 2), "utf-8");
+  const summaryPath = saveSummary(chapterDir, summaryData);
   console.log(`Summary saved to ${summaryPath}`);
   return summaryPath;
 }
@@ -117,7 +117,7 @@ async function generateSummary(chapterDir: string): Promise<SummaryResult> {
   const chapterName = pathParts[pathParts.length - 1] || "unknown";
   
   // Find the MP3 file
-  const audioPath = findMp3File(chapterDir);
+  const audioPath = findChapterAudioFile(chapterDir);
   console.log(`Found audio file: ${path.basename(audioPath)}`);
   validateAudioFile(audioPath);
   
@@ -127,7 +127,7 @@ async function generateSummary(chapterDir: string): Promise<SummaryResult> {
   try {
     // Check if we already have upload info for this file
     let fileInfo: UploadedFileInfo | null = getUploadedFileInfo(audioPath);
-    let uploadResult: { file: GeminiFileInfo };
+    let uploadResult: { file: { name: string; uri: string; mimeType: string; displayName: string; state: string; } };
     
     if (fileInfo && fileInfo.fileSize === stats.size) {
       console.log(`Found existing upload info for ${path.basename(audioPath)}`);
@@ -243,7 +243,7 @@ async function generateSummary(chapterDir: string): Promise<SummaryResult> {
     const responseText = result.response.text().trim();
     
     // Save raw response to file for examination
-    const responseFilePath = path.join(chapterDir, "gemini-summary.response.txt");
+    const responseFilePath = getSummaryResponsePath(chapterDir);
     fs.writeFileSync(responseFilePath, responseText, "utf-8");
     console.log(`Raw response saved to ${responseFilePath}`);
     

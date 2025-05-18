@@ -12,6 +12,7 @@ Each module in the Audiobook Animator project should follow the established stru
 src/
   module-name/
     cli.ts       # Command-line interface
+    paths.ts     # Path utilities and shared types
     [other specialized files...]
 ```
 
@@ -20,30 +21,46 @@ src/
 ### 1. Imports
 - External libraries first
 - Internal modules from common/ and other project files
+- Imports from other modules in the pipeline (e.g., paths.ts utilities)
 - Environment configuration (dotenv)
 
 ### 2. Types
-- Define TypeScript interfaces and types
-- Keep types close to where they are used
+- Define TypeScript interfaces and types in appropriate files:
+  - Types used only by cli.ts remain in cli.ts
+  - Types needed by other modules should be in paths.ts and exported
+  - Keep types close to where they are used
 
-### 3. Utility Functions
+### 3. Path Utilities (paths.ts)
+- File path construction functions (get*Path)
+- Directory path utilities 
+- File reading/writing utilities
+- Type definitions for shared data structures
+
+### 4. Utility Functions
 - Small, focused helper functions
 - Validation functions
 - File handling utilities
 
-### 4. Core Logic
+### 5. Core Logic
 - Main functionality of the module
 - Processing functions
 - API interaction
 
-### 5. CLI Logic
+### 6. CLI Logic
 - Command definition using Commander.js
 - Options and flags 
 - CLI action handlers
 
-### 6. Entrypoint
+### 7. Entrypoint
 - Main function that sets up and executes the CLI
 - Module execution check (if require.main === module)
+
+## Cross-Module Integration
+
+- Modules later in the pipeline should import types and utilities from earlier modules
+- Use paths.ts as the interface for sharing types and utilities between modules
+- Standard file naming conventions should be consistent across modules
+- Reuse shared data loading/saving patterns across modules
 
 ## Common Patterns
 
@@ -51,11 +68,20 @@ src/
 - File Management: Save metadata, use consistent naming, check for existing files
 - Performance Tracking: Use timer utilities, log progress for long operations
 - CLI Options: Use the FLAGS object from common/flags, support batch processing
+- File Paths: Use path utilities from paths.ts, never hardcode paths directly
+
+## Pipeline Integration
+
+- Each module should read data produced by previous pipeline steps using the earlier module's path utilities
+- Output files should follow consistent naming patterns for use by later modules
+- If chunking a file, ensure consistent naming and metadata for chunks 
+- Always provide appropriate metadata files alongside content files
 
 ## AI Integration
 
 - Authentication: Use environment variables for API keys with dotenv
 - File Upload: Handle large files, save metadata, monitor processing state
 - Prompt Engineering: Structure prompts clearly with specific output format
+- Context Sharing: Include context from previous pipeline steps in AI prompts when relevant
 
 Always reuse common utilities from src/common/ and maintain consistent CLI interfaces with existing modules.

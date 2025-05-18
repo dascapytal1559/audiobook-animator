@@ -6,27 +6,26 @@ import { FLAGS, parseBookDir, parseIds } from "../common/flags";
 import { ensureDirectory } from "../common/paths";
 import { CliTimer, ElapsedTimer } from "../common/timer";
 import { addDuration, parseDuration, parseTimestamp } from "../common/timestamps";
+import {
+  ChapterConfig,
+  ChaptersConfig,
+  ProcessedChapter,
+  ChapterDuration,
+  getBookAudioPath,
+  getChaptersConfigPath,
+  formatChapterDirName,
+  getChapterDir,
+  getChapterAudioPath,
+  getChapterDurationPath,
+  getBookDuration,
+  getChaptersConfig,
+  saveChapterDuration
+} from "./paths";
 
 // --- Types ---
-interface ChapterConfig {
-  title: string;
-  startTime?: string; // Start timestamp: "HH:MM:SS" or "MM:SS" (optional)
-  endTime?: string;   // End timestamp: "HH:MM:SS" or "MM:SS" (optional)
-  duration?: string;  // Duration: "HH:MM:SS" or "MM:SS" (optional)
-}
-
-type ChaptersConfig = ChapterConfig[];
-
 interface DurationData {
   inSeconds: number;
   inTimestamp: string;
-}
-
-interface ProcessedChapter {
-  title: string;
-  startTime: string;
-  endTime: string;
-  duration: string;
 }
 
 // --- Core Logic ---
@@ -41,18 +40,6 @@ function durationToSeconds(duration: string): number {
     return parts[0] * 60 + parts[1];
   }
   return 0;
-}
-
-/**
- * Get book duration from book.duration.json
- */
-async function getBookDuration(bookDir: string): Promise<DurationData> {
-  const durationPath = path.join(bookDir, "book.duration.json");
-  if (!fs.existsSync(durationPath)) {
-    throw new Error(`Book duration file not found at ${durationPath}`);
-  }
-
-  return JSON.parse(fs.readFileSync(durationPath, "utf-8"));
 }
 
 /**
@@ -114,26 +101,30 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
   console.log(`Splitting chapters for book in ${bookDir}`);
 
   // Check for book.mp3 file
-  const bookAudioPath = path.join(bookDir, "book.mp3");
+  const bookAudioPath = getBookAudioPath(bookDir);
   if (!fs.existsSync(bookAudioPath)) {
     throw new Error(`Book audio file not found at ${bookAudioPath}`);
   }
 
   // Load chapters config
-  const chaptersConfigPath = path.join(bookDir, "chapters.config.json");
+  const chaptersConfigPath = getChaptersConfigPath(bookDir);
   if (!fs.existsSync(chaptersConfigPath)) {
     throw new Error(`Chapters config not found at ${chaptersConfigPath}`);
   }
 
-  const rawChaptersConfig: ChaptersConfig = JSON.parse(
-    fs.readFileSync(chaptersConfigPath, "utf-8")
-  );
+  const rawChaptersConfig = getChaptersConfig(bookDir);
+  if (!rawChaptersConfig) {
+    throw new Error(`Could not parse chapters config at ${chaptersConfigPath}`);
+  }
   
   // Process chapters config to fill in missing fields
   const chaptersConfig = processChaptersConfig(rawChaptersConfig);
 
   // Load book duration
   const bookDuration = await getBookDuration(bookDir);
+  if (!bookDuration) {
+    throw new Error(`Could not get book duration for ${bookDir}`);
+  }
   
   // Validate that chapter timestamps are within book duration
   for (const chapter of chaptersConfig) {
@@ -157,17 +148,12 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
   // Process selected chapters
   for (const index of selectedIndices) {
     const chapter = chaptersConfig[index];
-    const chapterNumber = index.toString().padStart(1, "0");
-    const chapterTitle = chapter.title.replace(/\s+/g, "_");
-    const chapterDirName = `${chapterNumber}_${chapterTitle}`;
-    const chapterDir = path.join(bookDir, chapterDirName);
+    const chapterDir = getChapterDir(bookDir, index, chapter.title);
 
     // Create chapter directory if it doesn't exist
     ensureDirectory(chapterDir);
 
-    const outputPath = path.join(chapterDir, "chapter.mp3");
-    const durationPath = path.join(chapterDir, "chapter.duration.json");
-
+    const outputPath = getChapterAudioPath(chapterDir);
     const startTime = chapter.startTime;
     const endTime = chapter.endTime;
     const duration = chapter.duration;
@@ -175,12 +161,8 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
     // Calculate duration in seconds
     const durationSeconds = durationToSeconds(duration);
     
-    // Write duration in both seconds and timestamp format to JSON file
-    const durationData = {
-      inSeconds: durationSeconds,
-      inTimestamp: duration
-    };
-    fs.writeFileSync(durationPath, JSON.stringify(durationData, null, 2), "utf-8");
+    // Write duration file
+    const durationPath = saveChapterDuration(chapterDir, durationSeconds);
 
     console.log(
       `\nExtracting chapter ${index}: ${chapter.title} (from ${startTime} to ${endTime}, duration: ${duration})`

@@ -1,8 +1,7 @@
 audiobook
--> split-chapter
+-> split-chapters
 -> gemini-summary
-- chapter
-- chunk
+-> openai-transcribe
 - scenes and shots
 - prompt
 - image
