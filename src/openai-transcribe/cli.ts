@@ -5,7 +5,6 @@ import { OpenAI } from "openai";
 import * as path from "path";
 import { promisify } from "util";
 import { FLAGS, parseBookDir, parseChapterDirs } from "../common/flags";
-import { ensureDirectory } from "../common/paths";
 import { CliTimer, ElapsedTimer } from "../common/timer";
 import {
   findChapterAudioFile,
@@ -14,13 +13,21 @@ import {
 import {
   getChapterAudioPath,
   getChapterDuration,
-  saveChapterDuration,
 } from "../split-chapters/paths";
+import {
+  Segment,
+  Transcript,
+  getChunkAudioPath,
+  getChunkDuration,
+  saveChunkDuration,
+  saveTranscript,
+  saveTranscriptResponse,
+} from "./paths";
 
 const execAsync = promisify(exec);
 
 // --- Constants ---
-const MAX_CHUNK_DURATION = 45 * 60; // 45 minutes in seconds
+const DEFAULT_MAX_CHUNK_MINUTES = 45;
 
 // --- File Utilities ---
 
@@ -37,11 +44,6 @@ function validateAudioFile(audioPath: string): void {
   }
 }
 
-function saveJson(filePath: string, data: any): void {
-  ensureDirectory(path.dirname(filePath));
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-}
-
 // --- Summary Utilities ---
 
 /**
@@ -53,26 +55,6 @@ function getChapterSummary(chapterDir: string): string | undefined {
 }
 
 // --- Transcript Handling ---
-
-/**
- * Represents a single segment in the transcript
- */
-interface Segment {
-  id: number;
-  start: number;
-  end: number;
-  text: string;
-}
-
-/**
- * Represents a complete transcript with segments and metadata
- */
-interface Transcript {
-  duration: number;
-  segmentCount: number;
-  segments: Segment[];
-  text: string;
-}
 
 function validateTranscriptDuration(
   transcript: Transcript,
@@ -128,22 +110,23 @@ function cleanTranscript(
  */
 async function splitAudioIntoChunks(
   audioPath: string,
-  totalDuration: number
+  totalDuration: number,
+  maxChunkDuration: number
 ): Promise<string[]> {
   console.log(
     `Splitting audio file into ${Math.ceil(
-      totalDuration / MAX_CHUNK_DURATION
-    )} chunks of max ${MAX_CHUNK_DURATION} seconds...`
+      totalDuration / maxChunkDuration
+    )} chunks of max ${maxChunkDuration / 60} minutes...`
   );
 
   const chunkPaths: string[] = [];
   const dir = path.dirname(audioPath);
-  const chunkCount = Math.ceil(totalDuration / MAX_CHUNK_DURATION);
+  const chunkCount = Math.ceil(totalDuration / maxChunkDuration);
 
   for (let i = 0; i < chunkCount; i++) {
-    const start = i * MAX_CHUNK_DURATION;
-    const duration = Math.min(MAX_CHUNK_DURATION, totalDuration - start);
-    const chunkPath = path.join(dir, `chunk_${i}.mp3`);
+    const start = i * maxChunkDuration;
+    const duration = Math.min(maxChunkDuration, totalDuration - start);
+    const chunkPath = getChunkAudioPath(dir, i);
 
     console.log(`Creating chunk ${i}: start=${start}s, duration=${duration}s`);
 
@@ -152,11 +135,9 @@ async function splitAudioIntoChunks(
       `ffmpeg -y -i "${audioPath}" -ss ${start} -t ${duration} -acodec copy "${chunkPath}"`
     );
 
-    // Create duration file for this chunk
-    const chunkDurationPath = path.join(dir, `chunk_${i}.duration.json`);
-
-    // Save duration data
-    saveChapterDuration(dir, duration);
+    // Save duration data for this chunk
+    const durationPath = saveChunkDuration(dir, i, duration);
+    console.log(`Chunk ${i} duration saved to: ${durationPath}`);
 
     chunkPaths.push(chunkPath);
   }
@@ -281,9 +262,11 @@ The transcription should be precise and maintain the literary quality of the tex
  */
 async function transcribeChapter(
   chapterDir: string,
+  maxChunkMinutes: number = DEFAULT_MAX_CHUNK_MINUTES,
   forceChunks: boolean = false
 ): Promise<void> {
   const chapterName = path.basename(chapterDir);
+  const maxChunkDuration = maxChunkMinutes * 60; // Convert to seconds
 
   // Get audio file - first try the standard name, then fallback to finding any mp3
   let audioPath = getChapterAudioPath(chapterDir);
@@ -321,17 +304,16 @@ async function transcribeChapter(
   }
 
   // Check if we need to split into chunks (more than max duration or forced chunking)
-  const needsChunking = forceChunks || totalDuration > MAX_CHUNK_DURATION;
+  const needsChunking = forceChunks || totalDuration > maxChunkDuration;
+
+  // Log exact duration values for debugging purposes
+  console.log(
+    `Original chapter duration data: ${JSON.stringify(durationData)}`
+  );
 
   if (!needsChunking) {
     // Simple case: Transcribe the whole chapter at once
-    console.log("Chapter is less than 45 minutes, transcribing as a whole");
-
-    const rawResponsePath = path.join(
-      chapterDir,
-      "chapter.transcript.res.json"
-    );
-    const transcriptPath = path.join(chapterDir, "chapter.transcript.json");
+    console.log(`Chapter is less than ${maxChunkMinutes} minutes, transcribing as a whole`);
 
     // Get transcription from OpenAI
     const response = await transcribeAudio(
@@ -341,46 +323,35 @@ async function transcribeChapter(
     );
 
     // Save raw response
-    saveJson(rawResponsePath, response);
+    const rawResponsePath = saveTranscriptResponse(audioPath, response);
     console.log(`Raw response saved to: ${rawResponsePath}`);
 
     // Clean and save transcript
     const transcript = cleanTranscript(response);
-    saveJson(transcriptPath, transcript);
+    const transcriptPath = saveTranscript(audioPath, transcript);
     console.log(`Cleaned transcript saved to: ${transcriptPath}`);
   } else {
     // Complex case: Split into chunks, transcribe each, then stitch together
-    console.log("Chapter is longer than 45 minutes, splitting into chunks");
+    console.log(
+      `Chapter is longer than ${maxChunkMinutes} minutes, splitting into chunks`
+    );
 
     // Split the audio file into chunks
-    const chunkPaths = await splitAudioIntoChunks(audioPath, totalDuration);
+    const chunkPaths = await splitAudioIntoChunks(audioPath, totalDuration, maxChunkDuration);
     const chunkDurations: number[] = [];
     const chunkTranscripts: Transcript[] = [];
 
     // Process each chunk
     for (let i = 0; i < chunkPaths.length; i++) {
       const chunkPath = chunkPaths[i];
-      const chunkDurationPath = path.join(
-        chapterDir,
-        `chunk_${i}.duration.json`
-      );
-      const durationData = JSON.parse(
-        fs.readFileSync(chunkDurationPath, "utf8")
-      );
-      const chunkDuration = durationData.inSeconds;
+      const chunkDuration = getChunkDuration(chapterDir, i);
+      if (chunkDuration === null) {
+        throw new Error(`Could not get duration for chunk ${i}`);
+      }
       chunkDurations.push(chunkDuration);
 
       console.log(`\nProcessing chunk ${i}: ${path.basename(chunkPath)}`);
       console.log(`Chunk duration: ${chunkDuration} seconds`);
-
-      const rawResponsePath = path.join(
-        chapterDir,
-        `chunk_${i}.transcript.res.json`
-      );
-      const transcriptPath = path.join(
-        chapterDir,
-        `chunk_${i}.transcript.json`
-      );
 
       // Get transcription from OpenAI - use summary for every chunk for consistent context
       const response = await transcribeAudio(
@@ -390,12 +361,12 @@ async function transcribeChapter(
       );
 
       // Save raw response
-      saveJson(rawResponsePath, response);
+      const rawResponsePath = saveTranscriptResponse(chunkPath, response);
       console.log(`Raw response saved to: ${rawResponsePath}`);
 
       // Clean and save transcript
       const transcript = cleanTranscript(response);
-      saveJson(transcriptPath, transcript);
+      const transcriptPath = saveTranscript(chunkPath, transcript);
       console.log(`Cleaned transcript saved to: ${transcriptPath}`);
 
       // Add to collection for stitching later
@@ -413,8 +384,7 @@ async function transcribeChapter(
     validateTranscriptDuration(stitchedTranscript, totalDuration);
 
     // Save the stitched transcript
-    const stitchedPath = path.join(chapterDir, "chapter.transcript.json");
-    saveJson(stitchedPath, stitchedTranscript);
+    const stitchedPath = saveTranscript(audioPath, stitchedTranscript);
     console.log(`Stitched transcript saved to: ${stitchedPath}`);
 
     // Create a convenience file listing all used chunks
@@ -428,7 +398,10 @@ async function transcribeChapter(
         segments: chunkTranscripts[i].segmentCount,
       })),
     };
-    saveJson(path.join(chapterDir, "chunks.json"), chunksMetadata);
+    fs.writeFileSync(
+      path.join(chapterDir, "chunks.json"),
+      JSON.stringify(chunksMetadata, null, 2)
+    );
   }
 }
 
@@ -441,11 +414,12 @@ async function main() {
 
     program
       .description(
-        "Transcribe chapter audio files with automatic chunking for files >45 minutes"
+        "Transcribe chapter audio files with automatic chunking for files longer than the max chunk duration"
       )
       .option(FLAGS.book.flag, FLAGS.book.description)
       .requiredOption(FLAGS.chapters.flag, FLAGS.chapters.description)
-      .option(FLAGS.chunks.flag, "Force chunking even for files <45 minutes")
+      .option(FLAGS.chunks.flag, "Force chunking even for files shorter than max chunk duration")
+      .option("-m, --max-minutes <minutes>", "Maximum chunk duration in minutes", String(DEFAULT_MAX_CHUNK_MINUTES))
       .action(async (options) => {
         const chapterPaths = parseChapterDirs(
           parseBookDir(options.book),
@@ -453,13 +427,21 @@ async function main() {
         );
 
         const forceChunks = options.chunks === true;
+        const maxMinutes = parseInt(options.maxMinutes, 10);
+        
+        if (isNaN(maxMinutes) || maxMinutes <= 0) {
+          throw new Error("Max minutes must be a positive number");
+        }
+        
+        console.log(`Using max chunk duration of ${maxMinutes} minutes`);
+        
         if (forceChunks) {
           console.log("Forcing chunking for all files regardless of duration");
         }
 
         // Process each chapter
         for (const chapterPath of chapterPaths) {
-          await transcribeChapter(chapterPath, forceChunks);
+          await transcribeChapter(chapterPath, maxMinutes, forceChunks);
         }
       });
 

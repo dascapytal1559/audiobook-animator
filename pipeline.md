@@ -1,7 +1,6 @@
 audiobook
 -> book-duration
 -> split-chapters
--> gemini-summary
 -> openai-transcribe
 - scenes and shots
 - prompt
