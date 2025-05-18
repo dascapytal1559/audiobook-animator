@@ -9,7 +9,6 @@ import {
   parseChapterDirs,
 } from "../common/flags";
 import { CliTimer, ElapsedTimer } from "../common/timer";
-import { ensureDirectory } from "../common/paths";
 import * as dotenv from "dotenv";
 
 // --- Types ---
@@ -66,7 +65,7 @@ function findMp3File(chapterDir: string): string {
 }
 
 function getUploadInfoPath(audioPath: string): string {
-  return audioPath + ".upload-info.json";
+  return audioPath + ".gemini-upload.json";
 }
 
 function getUploadedFileInfo(audioPath: string): UploadedFileInfo | null {
@@ -83,7 +82,7 @@ function getUploadedFileInfo(audioPath: string): UploadedFileInfo | null {
 }
 
 function writeSummary(chapterDir: string, summaryResult: SummaryResult): string {
-  const summaryPath = path.join(chapterDir, "summary.json");
+  const summaryPath = path.join(chapterDir, "gemini-summary.json");
   const summaryData = {
     shortSummary: summaryResult.shortSummary,
     longSummary: summaryResult.longSummary,
