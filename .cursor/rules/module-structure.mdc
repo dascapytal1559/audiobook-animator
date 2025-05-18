@@ -16,30 +16,60 @@ src/
     [other specialized files...]
 ```
 
+## Import Organization
+
+Follow VSCode's auto-import organizer pattern:
+- Order imports in the following groups, separated by blank lines:
+  1. Node.js built-ins (e.g., `fs`, `path`, `util`) alphabetically
+  2. External packages/libraries alphabetically
+  3. Internal imports from the project alphabetically
+- For multi-item imports, use curly braces with items sorted alphabetically:
+  ```typescript
+  import {
+    findChapterAudioFile,
+    getGeminiSummary,
+  } from "../gemini-summary/paths";
+  ```
+
+## Code Formatting
+
+Follow VSCode's auto-formatter conventions:
+- Use 2-space indentation
+- Use double quotes for strings
+- Add trailing commas in multiline arrays and objects
+- Break long function signatures across multiple lines:
+  ```typescript
+  function validateTranscriptDuration(
+    transcript: Transcript,
+    expectedDuration: number
+  ): void {
+    // Implementation
+  }
+  ```
+- Break template strings and long expressions across multiple lines
+- Place spaces around operators and after commas
+- Format numeric expressions with spaces: `45 * 60` (not `45*60`)
+
 ## File Organization
 
 ### 1. Imports
-- External libraries first
-- Internal modules from common/ and other project files
-- Imports from other modules in the pipeline (e.g., paths.ts utilities)
-- Environment configuration (dotenv)
+- Follow the import organization rules above
+- Place constants immediately after imports
 
-### 2. Types
-- Define TypeScript interfaces and types in appropriate files:
-  - Types used only by cli.ts remain in cli.ts
-  - Types needed by other modules should be in paths.ts and exported
-  - Keep types close to where they are used
+### 2. Constants
+- Define constants at the top level
+- Group related constants together
+- Format with proper spacing: `const MAX_CHUNK_DURATION = 45 * 60;`
 
-### 3. Path Utilities (paths.ts)
-- File path construction functions (get*Path)
-- Directory path utilities 
-- File reading/writing utilities
-- Type definitions for shared data structures
+### 3. Section Organization
+- Group functions by purpose using section comments (e.g., `// --- File Utilities ---`)
+- Define types directly before the functions that use them
+- Keep related functions together in the same section
 
-### 4. Utility Functions
-- Small, focused helper functions
-- Validation functions
-- File handling utilities
+### 4. Path Utilities (paths.ts)
+- Organize by section (book utilities, chapter utilities, etc.)
+- Place type definitions before the first function that uses them
+- Group related path functions together
 
 ### 5. Core Logic
 - Main functionality of the module

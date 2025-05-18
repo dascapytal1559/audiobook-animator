@@ -1,39 +1,34 @@
 import { Command } from "commander";
 import ffmpeg from "fluent-ffmpeg";
 import * as fs from "fs";
-import path from "path";
+import * as path from "path";
 import { FLAGS, parseBookDir, parseIds } from "../common/flags";
 import { ensureDirectory } from "../common/paths";
 import { CliTimer, ElapsedTimer } from "../common/timer";
-import { addDuration, parseDuration, parseTimestamp } from "../common/timestamps";
 import {
-  ChapterConfig,
+  addDuration,
+  parseDuration,
+  parseTimestamp,
+} from "../common/timestamps";
+import { getBookAudioPath, getBookDuration } from "../book-duration/paths";
+import {
   ChaptersConfig,
   ProcessedChapter,
-  ChapterDuration,
-  getBookAudioPath,
   getChaptersConfigPath,
   formatChapterDirName,
   getChapterDir,
   getChapterAudioPath,
   getChapterDurationPath,
-  getBookDuration,
   getChaptersConfig,
-  saveChapterDuration
+  saveChapterDuration,
 } from "./paths";
-
-// --- Types ---
-interface DurationData {
-  inSeconds: number;
-  inTimestamp: string;
-}
 
 // --- Core Logic ---
 /**
  * Convert duration string (HH:MM:SS or MM:SS) to seconds
  */
 function durationToSeconds(duration: string): number {
-  const parts = duration.split(':').map(Number);
+  const parts = duration.split(":").map(Number);
   if (parts.length === 3) {
     return parts[0] * 3600 + parts[1] * 60 + parts[2];
   } else if (parts.length === 2) {
@@ -45,25 +40,29 @@ function durationToSeconds(duration: string): number {
 /**
  * Process chapter config to ensure all needed fields are available
  */
-function processChaptersConfig(chaptersConfig: ChaptersConfig): ProcessedChapter[] {
+function processChaptersConfig(
+  chaptersConfig: ChaptersConfig
+): ProcessedChapter[] {
   const processedChapters: ProcessedChapter[] = [];
   let currentStartTime = "00:00:00";
-  
+
   for (let i = 0; i < chaptersConfig.length; i++) {
     const chapter = chaptersConfig[i];
-    
+
     // Determine start time
     const startTime = chapter.startTime || currentStartTime;
-    
+
     // Check if either endTime or duration is provided
     if (!chapter.endTime && !chapter.duration) {
-      throw new Error(`Chapter "${chapter.title}" must specify either endTime or duration`);
+      throw new Error(
+        `Chapter "${chapter.title}" must specify either endTime or duration`
+      );
     }
-    
+
     // Calculate duration and end time
     let duration: string;
     let endTime: string;
-    
+
     if (chapter.endTime) {
       endTime = chapter.endTime;
       // Calculate duration from start and end times
@@ -77,18 +76,18 @@ function processChaptersConfig(chaptersConfig: ChaptersConfig): ProcessedChapter
       // Calculate end time from start time and duration
       endTime = addDuration(startTime, duration);
     }
-    
+
     processedChapters.push({
       title: chapter.title,
       startTime,
       endTime,
-      duration
+      duration,
     });
-    
+
     // Next chapter starts where this one ends
     currentStartTime = endTime;
   }
-  
+
   return processedChapters;
 }
 
@@ -116,7 +115,7 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
   if (!rawChaptersConfig) {
     throw new Error(`Could not parse chapters config at ${chaptersConfigPath}`);
   }
-  
+
   // Process chapters config to fill in missing fields
   const chaptersConfig = processChaptersConfig(rawChaptersConfig);
 
@@ -125,12 +124,14 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
   if (!bookDuration) {
     throw new Error(`Could not get book duration for ${bookDir}`);
   }
-  
+
   // Validate that chapter timestamps are within book duration
   for (const chapter of chaptersConfig) {
     const endTimeSeconds = parseTimestamp(chapter.endTime);
     if (endTimeSeconds > bookDuration.inSeconds) {
-      console.warn(`Warning: Chapter "${chapter.title}" end time (${chapter.endTime}) exceeds book duration (${bookDuration.inTimestamp})`);
+      console.warn(
+        `Warning: Chapter "${chapter.title}" end time (${chapter.endTime}) exceeds book duration (${bookDuration.inTimestamp})`
+      );
     }
   }
 
@@ -157,10 +158,10 @@ async function splitChapters(bookDir: string, isolatedChapterInput?: string) {
     const startTime = chapter.startTime;
     const endTime = chapter.endTime;
     const duration = chapter.duration;
-    
+
     // Calculate duration in seconds
     const durationSeconds = durationToSeconds(duration);
-    
+
     // Write duration file
     const durationPath = saveChapterDuration(chapterDir, durationSeconds);
 

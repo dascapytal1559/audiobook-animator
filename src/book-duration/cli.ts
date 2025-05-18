@@ -5,12 +5,23 @@ import * as path from "path";
 import { promisify } from "util";
 import { FLAGS, parseBookDir } from "../common/flags";
 import { parseDuration, parseTimestamp } from "../common/timestamps";
+import {
+  BookDuration,
+  bookAudioExists,
+  getBookAudioPath,
+  saveBookDuration,
+} from "./paths";
 
-// Used to get the duration of the book in seconds
-
+// --- Constants ---
 const execAsync = promisify(exec);
 
-// Get audio duration in seconds using ffmpeg
+// --- Audio Analysis Utilities ---
+
+/**
+ * Get audio duration in seconds using ffmpeg
+ * @param filePath Path to the audio file
+ * @returns Duration in seconds
+ */
 async function getAudioDurationInSeconds(filePath: string): Promise<number> {
   try {
     const { stdout } = await execAsync(
@@ -29,45 +40,54 @@ async function getAudioDurationInSeconds(filePath: string): Promise<number> {
   }
 }
 
+// --- Core Logic ---
+
+/**
+ * Analyze book audio and save duration data
+ * @param bookDir The book directory path
+ * @returns The duration data
+ */
+async function analyzeBookDuration(bookDir: string): Promise<BookDuration> {
+  if (!fs.existsSync(bookDir)) {
+    throw new Error(`Book directory not found: ${bookDir}`);
+  }
+  
+  // Check for book audio file
+  if (!bookAudioExists(bookDir)) {
+    throw new Error(`Audio file not found for book: ${bookDir}`);
+  }
+  
+  const audioPath = getBookAudioPath(bookDir);
+  console.log(`Analyzing duration of ${audioPath}...`);
+  
+  const durationInSeconds = await getAudioDurationInSeconds(audioPath);
+  const durationInTimestamp = parseDuration(durationInSeconds);
+  console.log(`Duration: ${durationInSeconds} seconds (${durationInTimestamp})`);
+  
+  // Create duration data object
+  const durationData: BookDuration = {
+    inSeconds: durationInSeconds,
+    inTimestamp: durationInTimestamp,
+  };
+  
+  // Save duration.json to the book directory
+  const outputPath = saveBookDuration(bookDir, durationData);
+  console.log(`Duration saved to ${outputPath}`);
+  
+  return durationData;
+}
+
+// --- CLI Logic ---
 async function main(): Promise<void> {
   const program = new Command();
   
   program
-    .description("Analyze audiobook duration and output to duration.json")
+    .description("Analyze audiobook duration and output to book.duration.json")
     .requiredOption(FLAGS.book.flag, FLAGS.book.description)
     .action(async (options: { book: string }) => {
       try {
         const bookDir = parseBookDir(options.book);
-        
-        if (!fs.existsSync(bookDir)) {
-          console.error(`Book directory not found: ${bookDir}`);
-          process.exit(1);
-        }
-        
-        // Check for book audio file
-        const audioFilename = `book.mp3`;
-        const audioPath = path.join(bookDir, audioFilename);
-        
-        if (!fs.existsSync(audioPath)) {
-          console.error(`Audio file not found: ${audioPath}`);
-          process.exit(1);
-        }
-        
-        console.log(`Analyzing duration of ${audioPath}...`);
-        const durationInSeconds = await getAudioDurationInSeconds(audioPath);
-        const durationInTimestamp = parseDuration(durationInSeconds);
-        console.log(`Duration: ${durationInSeconds} seconds (${durationInTimestamp})`);
-        
-        // Create duration data object
-        const durationData = {
-          inSeconds: durationInSeconds,
-          inTimestamp: durationInTimestamp
-        };
-        
-        // Save duration.json to the book directory
-        const outputPath = path.join(bookDir, "book.duration.json");
-        fs.writeFileSync(outputPath, JSON.stringify(durationData, null, 2), "utf-8");
-        console.log(`Duration saved to ${outputPath}`);
+        await analyzeBookDuration(bookDir);
       } catch (error) {
         console.error("Error:", error);
         process.exit(1);
@@ -77,6 +97,7 @@ async function main(): Promise<void> {
   program.parse(process.argv);
 }
 
+// --- Entrypoint ---
 if (require.main === module) {
   main();
 }

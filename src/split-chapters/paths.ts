@@ -1,6 +1,19 @@
 import * as path from "path";
 import * as fs from "fs";
 
+// --- Book Audio Path Utilities ---
+
+/**
+ * Get the path to the source audiobook file
+ * @param bookDir The book directory path
+ * @returns The path to the book.mp3 file
+ */
+export function getBookAudioPath(bookDir: string): string {
+  return path.join(bookDir, "book.mp3");
+}
+
+// --- Book Duration Utilities ---
+
 /**
  * Structure of the chapter duration JSON file
  */
@@ -8,6 +21,37 @@ export interface ChapterDuration {
   inSeconds: number;
   inTimestamp: string;
 }
+
+/**
+ * Get the path to the book's duration file
+ * @param bookDir The book directory path
+ * @returns The path to the book.duration.json file
+ */
+export function getBookDurationPath(bookDir: string): string {
+  return path.join(bookDir, "book.duration.json");
+}
+
+/**
+ * Get the book duration from book.duration.json
+ * @param bookDir The book directory path
+ * @returns The duration data or null if not found
+ */
+export function getBookDuration(bookDir: string): ChapterDuration | null {
+  const durationPath = getBookDurationPath(bookDir);
+  if (!fs.existsSync(durationPath)) {
+    console.warn(`Book duration file not found at ${durationPath}`);
+    return null;
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(durationPath, "utf-8"));
+  } catch (error) {
+    console.warn(`Error parsing book duration at ${durationPath}:`, error);
+    return null;
+  }
+}
+
+// --- Chapter Configuration Utilities ---
 
 /**
  * Structure of the chapter's config in chapters.config.json
@@ -32,24 +76,6 @@ export interface ProcessedChapter {
 }
 
 /**
- * Get the path to the source audiobook file
- * @param bookDir The book directory path
- * @returns The path to the book.mp3 file
- */
-export function getBookAudioPath(bookDir: string): string {
-  return path.join(bookDir, "book.mp3");
-}
-
-/**
- * Get the path to the book's duration file
- * @param bookDir The book directory path
- * @returns The path to the book.duration.json file
- */
-export function getBookDurationPath(bookDir: string): string {
-  return path.join(bookDir, "book.duration.json");
-}
-
-/**
  * Get the path to the chapters config file
  * @param bookDir The book directory path
  * @returns The path to the chapters.config.json file
@@ -57,6 +83,28 @@ export function getBookDurationPath(bookDir: string): string {
 export function getChaptersConfigPath(bookDir: string): string {
   return path.join(bookDir, "chapters.config.json");
 }
+
+/**
+ * Get the chapters configuration from chapters.config.json
+ * @param bookDir The book directory path
+ * @returns The chapters configuration or null if not found
+ */
+export function getChaptersConfig(bookDir: string): ChaptersConfig | null {
+  const configPath = getChaptersConfigPath(bookDir);
+  if (!fs.existsSync(configPath)) {
+    console.warn(`Chapters config file not found at ${configPath}`);
+    return null;
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  } catch (error) {
+    console.warn(`Error parsing chapters config at ${configPath}:`, error);
+    return null;
+  }
+}
+
+// --- Chapter Directory Utilities ---
 
 /**
  * Generate the directory name for a chapter
@@ -82,6 +130,8 @@ export function getChapterDir(bookDir: string, index: number, title: string): st
   return path.join(bookDir, chapterDirName);
 }
 
+// --- Chapter Audio Utilities ---
+
 /**
  * Get the path to a chapter's audio file
  * @param chapterDir The chapter directory path
@@ -91,6 +141,8 @@ export function getChapterAudioPath(chapterDir: string): string {
   return path.join(chapterDir, "chapter.mp3");
 }
 
+// --- Chapter Duration Utilities ---
+
 /**
  * Get the path to a chapter's duration file
  * @param chapterDir The chapter directory path
@@ -98,46 +150,6 @@ export function getChapterAudioPath(chapterDir: string): string {
  */
 export function getChapterDurationPath(chapterDir: string): string {
   return path.join(chapterDir, "chapter.duration.json");
-}
-
-/**
- * Get the book duration from book.duration.json
- * @param bookDir The book directory path
- * @returns The duration data or null if not found
- */
-export function getBookDuration(bookDir: string): ChapterDuration | null {
-  const durationPath = getBookDurationPath(bookDir);
-  if (!fs.existsSync(durationPath)) {
-    console.warn(`Book duration file not found at ${durationPath}`);
-    return null;
-  }
-
-  try {
-    return JSON.parse(fs.readFileSync(durationPath, "utf-8"));
-  } catch (error) {
-    console.warn(`Error parsing book duration at ${durationPath}:`, error);
-    return null;
-  }
-}
-
-/**
- * Get the chapters configuration from chapters.config.json
- * @param bookDir The book directory path
- * @returns The chapters configuration or null if not found
- */
-export function getChaptersConfig(bookDir: string): ChaptersConfig | null {
-  const configPath = getChaptersConfigPath(bookDir);
-  if (!fs.existsSync(configPath)) {
-    console.warn(`Chapters config file not found at ${configPath}`);
-    return null;
-  }
-
-  try {
-    return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-  } catch (error) {
-    console.warn(`Error parsing chapters config at ${configPath}:`, error);
-    return null;
-  }
 }
 
 /**

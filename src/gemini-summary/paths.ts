@@ -1,6 +1,8 @@
 import * as path from "path";
 import * as fs from "fs";
 
+// --- Summary File Utilities ---
+
 /**
  * Structure of the gemini-summary.json file
  */
@@ -19,24 +21,6 @@ export interface GeminiSummary {
  */
 export function getSummaryPath(chapterDir: string): string {
   return path.join(chapterDir, "gemini-summary.json");
-}
-
-/**
- * Get the path to the raw response file for a chapter
- * @param chapterDir The chapter directory path
- * @returns The path to the gemini-summary.response.txt file
- */
-export function getSummaryResponsePath(chapterDir: string): string {
-  return path.join(chapterDir, "gemini-summary.response.txt");
-}
-
-/**
- * Get the path to store upload info for an audio file
- * @param audioPath The audio file path
- * @returns The path to the upload info file
- */
-export function getUploadInfoPath(audioPath: string): string {
-  return audioPath + ".gemini-upload.json";
 }
 
 /**
@@ -60,6 +44,29 @@ export function getGeminiSummary(chapterDir: string): GeminiSummary | null {
 }
 
 /**
+ * Save a GeminiSummary to disk
+ * @param chapterDir The chapter directory path
+ * @param summaryData The summary data to save
+ * @returns The path to the saved file
+ */
+export function saveSummary(chapterDir: string, summaryData: GeminiSummary): string {
+  const summaryPath = getSummaryPath(chapterDir);
+  fs.writeFileSync(summaryPath, JSON.stringify(summaryData, null, 2), "utf-8");
+  return summaryPath;
+}
+
+/**
+ * Get the path to the raw response file for a chapter
+ * @param chapterDir The chapter directory path
+ * @returns The path to the gemini-summary.response.txt file
+ */
+export function getSummaryResponsePath(chapterDir: string): string {
+  return path.join(chapterDir, "gemini-summary.response.txt");
+}
+
+// --- Audio File Utilities ---
+
+/**
  * Find the main MP3 file in a chapter directory (excluding chunk files)
  * @param chapterDir The chapter directory path
  * @returns The path to the found MP3 file
@@ -79,14 +86,13 @@ export function findChapterAudioFile(chapterDir: string): string {
   return path.join(chapterDir, mp3Files[0]);
 }
 
+// --- Upload Info Utilities ---
+
 /**
- * Save a GeminiSummary to disk
- * @param chapterDir The chapter directory path
- * @param summaryData The summary data to save
- * @returns The path to the saved file
+ * Get the path to store upload info for an audio file
+ * @param audioPath The audio file path
+ * @returns The path to the upload info file
  */
-export function saveSummary(chapterDir: string, summaryData: GeminiSummary): string {
-  const summaryPath = getSummaryPath(chapterDir);
-  fs.writeFileSync(summaryPath, JSON.stringify(summaryData, null, 2), "utf-8");
-  return summaryPath;
+export function getUploadInfoPath(audioPath: string): string {
+  return audioPath + ".gemini-upload.json";
 } 

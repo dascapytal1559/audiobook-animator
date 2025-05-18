@@ -1,4 +1,5 @@
 audiobook
+-> book-duration
 -> split-chapters
 -> gemini-summary
 -> openai-transcribe
