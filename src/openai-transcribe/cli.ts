@@ -27,7 +27,7 @@ import {
 const execAsync = promisify(exec);
 
 // --- Constants ---
-const DEFAULT_MAX_CHUNK_MINUTES = 45;
+const DEFAULT_MAX_CHUNK_MINUTES = 50;
 
 // --- File Utilities ---
 
