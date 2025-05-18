@@ -416,9 +416,8 @@ async function main() {
       .description(
         "Transcribe chapter audio files with automatic chunking for files longer than the max chunk duration"
       )
-      .option(FLAGS.book.flag, FLAGS.book.description)
+      .requiredOption(FLAGS.book.flag, FLAGS.book.description)
       .requiredOption(FLAGS.chapters.flag, FLAGS.chapters.description)
-      .option(FLAGS.chunks.flag, "Force chunking even for files shorter than max chunk duration")
       .option("-m, --max-minutes <minutes>", "Maximum chunk duration in minutes", String(DEFAULT_MAX_CHUNK_MINUTES))
       .action(async (options) => {
         const chapterPaths = parseChapterDirs(

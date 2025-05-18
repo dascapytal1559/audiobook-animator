@@ -1,7 +1,8 @@
 audiobook
 -> book-duration
 -> split-chapters
--> openai-transcribe
+-> transcribe
+-> analyze-story
 - scenes and shots
 - prompt
 - image
