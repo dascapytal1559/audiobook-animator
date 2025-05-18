@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import ffmpeg from "fluent-ffmpeg";
 import * as fs from "fs";
-import * as path from "path";
+import { getBookAudioPath, getBookDuration } from "../book-duration/paths";
 import { FLAGS, parseBookDir, parseIds } from "../common/flags";
 import { ensureDirectory } from "../common/paths";
 import { CliTimer, ElapsedTimer } from "../common/timer";
@@ -10,16 +10,13 @@ import {
   parseDuration,
   parseTimestamp,
 } from "../common/timestamps";
-import { getBookAudioPath, getBookDuration } from "../book-duration/paths";
 import {
   ChaptersConfig,
   ProcessedChapter,
-  getChaptersConfigPath,
-  formatChapterDirName,
-  getChapterDir,
   getChapterAudioPath,
-  getChapterDurationPath,
+  getChapterDir,
   getChaptersConfig,
+  getChaptersConfigPath,
   saveChapterDuration,
 } from "./paths";
 
